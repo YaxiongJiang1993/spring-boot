@@ -260,12 +260,23 @@ public class SpringApplication {
 	public SpringApplication(ResourceLoader resourceLoader, Class<?>... primarySources) {
 		this.resourceLoader = resourceLoader;
 		Assert.notNull(primarySources, "PrimarySources must not be null");
+
 		this.primarySources = new LinkedHashSet<>(Arrays.asList(primarySources));
+
+		// 1. 推测web应用类型（NONE、REACTIVE、SERVLET）
 		this.webApplicationType = WebApplicationType.deduceFromClasspath();
+
+		// 2. 从spring.factories中获取BootstrapRegistryInitializer对象
 		this.bootstrapRegistryInitializers = new ArrayList<>(
 				getSpringFactoriesInstances(BootstrapRegistryInitializer.class));
+
+		// 3. 从spring.factories中获取ApplicationContextInitializer对象
 		setInitializers((Collection) getSpringFactoriesInstances(ApplicationContextInitializer.class));
+
+		// 4. 从spring.factories中获取ApplicationListener对象
 		setListeners((Collection) getSpringFactoriesInstances(ApplicationListener.class));
+
+		// 5. 推测出Main类（main()方法所在的类）
 		this.mainApplicationClass = deduceMainApplicationClass();
 	}
 

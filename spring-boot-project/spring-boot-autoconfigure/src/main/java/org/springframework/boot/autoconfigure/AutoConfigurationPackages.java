@@ -132,6 +132,8 @@ public abstract class AutoConfigurationPackages {
 			for (Class<?> basePackageClass : attributes.getClassArray("basePackageClasses")) {
 				packageNames.add(basePackageClass.getPackage().getName());
 			}
+
+			// App类所在的包
 			if (packageNames.isEmpty()) {
 				packageNames.add(ClassUtils.getPackageName(metadata.getClassName()));
 			}
