@@ -303,34 +303,72 @@ public class SpringApplication {
 	 */
 	public ConfigurableApplicationContext run(String... args) {
 		long startTime = System.nanoTime();
+
+		// 1、创建引导启动器，类似一个ApplicationContext，可以往里面添加一些对象
 		DefaultBootstrapContext bootstrapContext = createBootstrapContext();
+
 		ConfigurableApplicationContext context = null;
 		configureHeadlessProperty();
+
+		// 2、从spring.factories中获取SpringApplicationRunListener对象
+		// 默认会拿到一个EventPublishingRunListener，它会启动过程的各个阶段发布对应的ApplicationEvent事件
 		SpringApplicationRunListeners listeners = getRunListeners(args);
+
+		// 3、发布ApplicationStartingEvent
 		listeners.starting(bootstrapContext, this.mainApplicationClass);
 		try {
+
+			// 4、将run()的参数封装为DefaultApplicationArguments对象
 			ApplicationArguments applicationArguments = new DefaultApplicationArguments(args);
+
+			// 5、准备Environment
+			// 包括操作系统，JVM、ServletContext、properties、yaml等等配置
+			// 会发布一个ApplicationEnvironmentPreparedEvent
 			ConfigurableEnvironment environment = prepareEnvironment(listeners, bootstrapContext, applicationArguments);
+
+			// 默认spring.beaninfo.ignore=true，表示不需要jdk缓存beanInfo信息，Spring自己会缓存
 			configureIgnoreBeanInfo(environment);
+
 			Banner printedBanner = printBanner(environment);
+
+			// 6、根据应用类型创建Spring容器
 			context = createApplicationContext();
 			context.setApplicationStartup(this.applicationStartup);
+
+			// 7、利用ApplicationContextInitializer初始化Spring容器
+			// 8、发布ApplicationContextInitializedEvent
+			// 9、关闭DefaultBootstrapContext
+			// 10、注册primarySources类，就是run方法存入进来的配置类
+			// 11、发布ApplicationPreparedEvent事件
 			prepareContext(bootstrapContext, context, environment, listeners, applicationArguments, printedBanner);
+
+			// 12、刷新Spring容器，会解析配置类、扫描、启动WebServer
 			refreshContext(context);
+
+			// 空方法
 			afterRefresh(context, applicationArguments);
+
+			// 启动时间
 			Duration timeTakenToStartup = Duration.ofNanos(System.nanoTime() - startTime);
 			if (this.logStartupInfo) {
 				new StartupInfoLogger(this.mainApplicationClass).logStarted(getApplicationLog(), timeTakenToStartup);
 			}
+
+			// 13、发布ApplicationStartedEvent事件，表示Spring容器已经启动
 			listeners.started(context, timeTakenToStartup);
+
+			// 14、从Spring容器中获取ApplicationRunner和CommandLineRunner，并执行其run()
 			callRunners(context, applicationArguments);
 		}
 		catch (Throwable ex) {
+			// 15、发布ApplicationFailedEvent事件
 			handleRunFailure(context, ex, listeners);
 			throw new IllegalStateException(ex);
 		}
 		try {
 			Duration timeTakenToReady = Duration.ofNanos(System.nanoTime() - startTime);
+
+			// 16、发布ApplicationReadyEvent事件，表示Spring容器已经准备好了
 			listeners.ready(context, timeTakenToReady);
 		}
 		catch (Throwable ex) {
@@ -342,6 +380,7 @@ public class SpringApplication {
 
 	private DefaultBootstrapContext createBootstrapContext() {
 		DefaultBootstrapContext bootstrapContext = new DefaultBootstrapContext();
+		// 利用bootstrapRegistryInitializers初始化DefaultBootstrapContext
 		this.bootstrapRegistryInitializers.forEach((initializer) -> initializer.initialize(bootstrapContext));
 		return bootstrapContext;
 	}
@@ -349,10 +388,25 @@ public class SpringApplication {
 	private ConfigurableEnvironment prepareEnvironment(SpringApplicationRunListeners listeners,
 			DefaultBootstrapContext bootstrapContext, ApplicationArguments applicationArguments) {
 		// Create and configure the environment
+		// 创建ApplicationServletEnvironment，里面添加了四个PropertySource
+		// 1. StubPropertySource {name='servletConfigInitParams'}
+		// 2. StubPropertySource {name='servletContextInitParams'}
+		// 3. PropertiesPropertySource {name='systemProperties'}
+		// 4. SystemEnvironmentPropertySource {name='systemEnvironment'}
 		ConfigurableEnvironment environment = getOrCreateEnvironment();
+
+		// 添加SimpleCommandLinePropertySource {name='commandLineArgs'}，放在首位
 		configureEnvironment(environment, applicationArguments.getSourceArgs());
+
+		// 把所有的PropertySources封装为一个ConfigurationPropertySourcesPropertySource
+		// 然后添加到environment中，放在首位
 		ConfigurationPropertySources.attach(environment);
+
+		// 发布ApplicationEnvironmentPreparedEvent事件，表示环境已经准备好了
+		// 默认EnvironmentPostProcessorApplicationListener会处理这个事件，会从spring.factories中拿出EnvironmentPostProcessor进一步处理Environment
 		listeners.environmentPrepared(bootstrapContext, environment);
+
+		// 最后，把defaultProperties移到最后
 		DefaultPropertiesPropertySource.moveToEnd(environment);
 		Assert.state(!environment.containsProperty("spring.main.environment-prefix"),
 				"Environment prefix cannot be set via properties.");
@@ -1308,6 +1362,7 @@ public class SpringApplication {
 	 * @return the running {@link ApplicationContext}
 	 */
 	public static ConfigurableApplicationContext run(Class<?>[] primarySources, String[] args) {
+		// 构造SpringApplication对象
 		return new SpringApplication(primarySources).run(args);
 	}
 
