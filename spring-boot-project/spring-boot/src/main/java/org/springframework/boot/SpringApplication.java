@@ -434,21 +434,36 @@ public class SpringApplication {
 	private void prepareContext(DefaultBootstrapContext bootstrapContext, ConfigurableApplicationContext context,
 			ConfigurableEnvironment environment, SpringApplicationRunListeners listeners,
 			ApplicationArguments applicationArguments, Banner printedBanner) {
+
+		// 将前面生成的Environment设置到Spring容器中
 		context.setEnvironment(environment);
+
+		// 将设置在SpringApplication上的beanNameGenerator、resourceLoader设置到Spring容器中
 		postProcessApplicationContext(context);
+
+		// 利用ApplicationContextInitializer初始化Spring容器
 		applyInitializers(context);
+
+		// 发布ApplicationContextInitializedEvent事件，表示Spring容器初始化完成
 		listeners.contextPrepared(context);
+
+		// Spring容器初始化好了，就关闭DefaultBootstrapContext
 		bootstrapContext.close(context);
+
 		if (this.logStartupInfo) {
 			logStartupInfo(context.getParent() == null);
 			logStartupProfileInfo(context);
 		}
+
+		// 注册一些单例Bean
 		// Add boot specific singleton beans
 		ConfigurableListableBeanFactory beanFactory = context.getBeanFactory();
 		beanFactory.registerSingleton("springApplicationArguments", applicationArguments);
 		if (printedBanner != null) {
 			beanFactory.registerSingleton("springBootBanner", printedBanner);
 		}
+
+		// 设置allowCircularReferences和allowBeanDefinitionOverriding给Spring容器
 		if (beanFactory instanceof AbstractAutowireCapableBeanFactory) {
 			((AbstractAutowireCapableBeanFactory) beanFactory).setAllowCircularReferences(this.allowCircularReferences);
 			if (beanFactory instanceof DefaultListableBeanFactory) {
@@ -460,10 +475,16 @@ public class SpringApplication {
 			context.addBeanFactoryPostProcessor(new LazyInitializationBeanFactoryPostProcessor());
 		}
 		context.addBeanFactoryPostProcessor(new PropertySourceOrderingBeanFactoryPostProcessor(context));
+
 		// Load the sources
+		// 拿到启动配置类（run方法传进来的类）
 		Set<Object> sources = getAllSources();
 		Assert.notEmpty(sources, "Sources must not be empty");
+
+		// 将启动配置类解析为BeanDefinition注册到Spring容器中
 		load(context, sources.toArray(new Object[0]));
+
+		// 发布ApplicationPreparedEvent事件，表示Spring容器已经准备好
 		listeners.contextLoaded(context);
 	}
 
@@ -542,9 +563,14 @@ public class SpringApplication {
 	 */
 	protected void configureEnvironment(ConfigurableEnvironment environment, String[] args) {
 		if (this.addConversionService) {
+			// 添加一些类型转化器，比如把properties文件中的字符串转化成各种类型
 			environment.setConversionService(new ApplicationConversionService());
 		}
+
+		// 添加SimpleCommandLinePropertySource {name='commandLineArgs'}，放在首位
 		configurePropertySources(environment, args);
+
+		// 空方法
 		configureProfiles(environment, args);
 	}
 
@@ -557,6 +583,8 @@ public class SpringApplication {
 	 */
 	protected void configurePropertySources(ConfigurableEnvironment environment, String[] args) {
 		MutablePropertySources sources = environment.getPropertySources();
+
+		// 添加默认的
 		if (!CollectionUtils.isEmpty(this.defaultProperties)) {
 			DefaultPropertiesPropertySource.addOrMerge(this.defaultProperties, sources);
 		}
