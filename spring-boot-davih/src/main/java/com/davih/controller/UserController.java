@@ -15,7 +15,8 @@ public class UserController {
 	private UserService userService;
 
 	@GetMapping("/test")
-	public String test(){
+	public String test() {
 		return this.userService.test();
 	}
+
 }
